@@ -44,6 +44,12 @@ fn main() {
                 .long("view")
                 .help("View your ideas using less"),
         )
+        .arg(
+            Arg::with_name("repo")
+                .long("repo")
+                .takes_value(true)
+                .help("The repo path to be used instead of the repo path in the config file"),
+        )
         .get_matches();
 
     let fh = FileHandler {};
@@ -63,14 +69,13 @@ fn main() {
     }
 
     if cli_flags.is_present("view") {
-        match fh.config_read(Repo) {
-            Ok(repo_path) => match open_pager_less(repo_path) {
-                Ok(_) => {
-                    ::std::process::exit(0);
-                }
-                Err(e) => panic!(e),
-            },
+        let repo_path = match get_repo_path(&cli_flags, &fh) {
+            Ok(repo_path) => repo_path,
             Err(_) => panic!("No path to repository found"),
+        };
+        match open_pager_less(repo_path) {
+            Ok(_) => ::std::process::exit(0),
+            Err(e) => panic!(e),
         }
     }
 
@@ -78,7 +83,7 @@ fn main() {
     // require an idea to be written down.
     let mut is_first_time: bool = false;
 
-    let repo_path: String = match fh.config_read(Repo) {
+    let repo_path: String = match get_repo_path(&cli_flags, &fh) {
         Ok(file_path) => file_path,
         Err(_) => {
             is_first_time = true;
@@ -158,6 +163,13 @@ fn main() {
         };
     } else {
         p.println("First time setup complete. Happy ideation!");
+    }
+}
+
+fn get_repo_path(cli_flags: &ArgMatches, fh: &FileHandler) -> io::Result<String> {
+    match cli_flags.value_of("repo") {
+        Some(file_path) => Ok(String::from(file_path)),
+        None => fh.config_read(Repo),
     }
 }
 
